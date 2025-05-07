@@ -1,22 +1,19 @@
-import os
-from flask import Flask, request, jsonify
-from docx import Document
-import PyPDF2
-import re
+import streamlit as st
 import pandas as pd
+import re
 import nltk
-from nltk.corpus import stopwords
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from models.skill_matcher import match_resume_to_job, get_job_embeddings
 
-nltk.download('stopwords')
+
+
+# Download the necessary NLTK resources
 nltk.download('punkt')
+nltk.download('stopwords')
 
-app = Flask(__name__)
-
-UPLOAD_FOLDER = 'uploads'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['ALLOWED_EXTENSIONS'] = {'txt', 'pdf', 'docx'}
-
-# Load the job titles and skills
+# Load job titles and skills from your CSVs
 job_titles_df = pd.read_csv("data/cleaned_job_titles.csv")
 skills_df = pd.read_csv("data/cleaned_skills.csv")
 known_skills = set(skills_df['skill'].dropna().str.lower())
@@ -26,70 +23,53 @@ job_titles = set(job_titles_df['job_title'].str.lower().dropna().unique())
 for skills in skills_df['skill'].dropna():
     known_skills.update([skill.strip().lower() for skill in skills.split(',')])
 
-# Function to extract skills and titles from resume text
-def extract_skills_and_titles(resume_text):
+# Function to extract skills from resume (optional, if needed later)
+def extract_skills(resume_text):
     resume_text = resume_text.lower()
-
-    found_titles = [title for title in job_titles if re.search(r'\b' + re.escape(title) + r'\b', resume_text)]
     found_skills = [skill for skill in known_skills if re.search(r'\b' + re.escape(skill) + r'\b', resume_text)]
+    return list(set(found_skills))
 
-    return {
-        "job_titles": list(set(found_titles)),
-        "skills": list(set(found_skills))
-    }
+# Streamlit app
+def main():
+    st.title("AI Career Advisor - PathFinder")
 
-# Helper function to extract text from docx
-def extract_text_from_docx(file_path):
-    doc = Document(file_path)
-    text = "\n".join([para.text for para in doc.paragraphs])
-    return text
+    st.write(
+        "Upload a resume (in PDF or text format), and this app will suggest the most relevant job title based on your skills and experience."
+    )
 
-# Helper function to extract text from pdf
-def extract_text_from_pdf(file_path):
-    with open(file_path, 'rb') as file:
-        reader = PyPDF2.PdfReader(file)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text()
-        return text
+    # File uploader widget
+    uploaded_file = st.file_uploader("Choose a file", type=["pdf", "txt"])
 
-# Helper function to extract text from txt file
-def extract_text_from_txt(file_path):
-    with open(file_path, 'r', encoding='utf-8') as file:
-        return file.read()
+    if uploaded_file is not None:
+        # Process the uploaded file
+        if uploaded_file.type == "application/pdf":
+            # If the uploaded file is a PDF, read it
+            import PyPDF2
+            reader = PyPDF2.PdfReader(uploaded_file)
+            resume_text = ""
+            for page in reader.pages:
+                resume_text += page.extract_text()
+        elif uploaded_file.type == "text/plain":
+            # If the uploaded file is plain text
+            resume_text = str(uploaded_file.read(), "utf-8")
+        
+        # Extract skills from the resume (if needed)
+        extracted_skills = extract_skills(resume_text)
 
-# Check for allowed file extensions
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+        # Use the resume text to match to the best job title
+        job_embeddings = get_job_embeddings(list(job_titles))
 
-# Route to upload resume
-@app.route('/upload', methods=['POST'])
-def upload_resume():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
+        best_job_title, similarity_score = match_resume_to_job(resume_text, job_embeddings)
 
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
+        # Display the results
+        st.subheader("Extracted Information")
+        
+        st.write("### Skills Extracted")
+        st.write(extracted_skills)
 
-    if file and allowed_file(file.filename):
-        filename = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        file.save(filename)
+        st.write("### Recommended Job Title")
+        st.write(f"**{best_job_title}**")
+        st.write(f"Similarity Score: {similarity_score:.4f}")
 
-        # Extract text based on file type
-        if file.filename.endswith('.txt'):
-            resume_text = extract_text_from_txt(filename)
-        elif file.filename.endswith('.pdf'):
-            resume_text = extract_text_from_pdf(filename)
-        elif file.filename.endswith('.docx'):
-            resume_text = extract_text_from_docx(filename)
-
-        # Pass the resume text to your parser
-        result = extract_skills_and_titles(resume_text)
-
-        return jsonify({'message': 'File successfully uploaded', 'filename': file.filename, 'parsed_result': result}), 200
-    else:
-        return jsonify({'error': 'Invalid file format. Only .txt, .pdf, .docx are allowed'}), 400
-
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    main()
