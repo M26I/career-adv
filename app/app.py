@@ -4,6 +4,7 @@ import re
 import nltk
 import sys
 import os
+from collections import Counter
 
 # Ensure the 'models' folder is in the path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -29,6 +30,24 @@ def extract_skills(resume_text):
     found_skills = [skill for skill in known_skills if re.search(r'\b' + re.escape(skill) + r'\b', resume_text)]
     return list(set(found_skills))
 
+# Smart skill suggestion function (excludes experience-based terms)
+def suggest_missing_skills(resume_text, extracted_skills, known_skills, top_n=10):
+    experience_keywords = {'years', 'experienced', 'experience', 'senior', 'junior', 'mid-level', 'midlevel'}
+    words = re.findall(r'\w+', resume_text.lower())
+    word_counts = Counter(words)
+
+    skill_scores = []
+    for skill in known_skills:
+        if skill not in extracted_skills:
+            if any(exp_kw in skill for exp_kw in experience_keywords):
+                continue
+            relevance = sum(word_counts.get(word, 0) for word in skill.split())
+            if relevance > 0:
+                skill_scores.append((skill, relevance))
+
+    sorted_skills = sorted(skill_scores, key=lambda x: x[1], reverse=True)
+    return [skill for skill, _ in sorted_skills[:top_n]]
+
 # Streamlit app
 def main():
     st.title("AI Career Advisor - PathFinder")
@@ -50,8 +69,8 @@ def main():
         # Extract skills
         extracted_skills = extract_skills(resume_text)
 
-        # Suggest additional known skills that are not in the resume
-        suggested_skills = [skill for skill in known_skills if skill not in extracted_skills][:10]
+        # Smarter skill suggestions
+        suggested_skills = suggest_missing_skills(resume_text, extracted_skills, known_skills)
 
         # Generate embeddings
         job_embeddings = get_job_embeddings(job_titles)
@@ -59,10 +78,12 @@ def main():
         # Match resume to top job titles
         top_matches = match_resume_to_job(resume_text, job_titles, job_embeddings, top_k=5)
 
-        # Display results
-        st.subheader("Extracted Information")
-        st.write("### Skills Extracted")
-        st.write(extracted_skills if extracted_skills else "No clear skills found.")
+        # Display results in new order
+        st.subheader("Results")
+
+        st.write("### Top 5 Job Matches")
+        for match in top_matches:
+            st.write(f"**{match['job_title']}** — Similarity Score: {match['score']:.3f}")
 
         st.write("### Suggested Skills to Learn or Add")
         if suggested_skills:
@@ -70,9 +91,8 @@ def main():
         else:
             st.write("No suggestions — great coverage!")
 
-        st.write("### Top 5 Job Matches")
-        for match in top_matches:
-            st.write(f"**{match['job_title']}** — Similarity Score: {match['score']:.3f}")
+        st.write("### Skills Extracted from Your Resume")
+        st.write(extracted_skills if extracted_skills else "No clear skills found.")
 
 if __name__ == "__main__":
     main()
