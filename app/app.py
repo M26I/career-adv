@@ -50,6 +50,9 @@ def main():
         # Extract skills
         extracted_skills = extract_skills(resume_text)
 
+        # Suggest additional known skills that are not in the resume
+        suggested_skills = [skill for skill in known_skills if skill not in extracted_skills][:10]
+
         # Generate embeddings
         job_embeddings = get_job_embeddings(job_titles)
 
@@ -60,6 +63,12 @@ def main():
         st.subheader("Extracted Information")
         st.write("### Skills Extracted")
         st.write(extracted_skills if extracted_skills else "No clear skills found.")
+
+        st.write("### Suggested Skills to Learn or Add")
+        if suggested_skills:
+            st.write(suggested_skills)
+        else:
+            st.write("No suggestions — great coverage!")
 
         st.write("### Top 5 Job Matches")
         for match in top_matches:
