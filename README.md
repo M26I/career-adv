@@ -65,5 +65,5 @@ These are located in the `sample_resumes/` folder and can be selected directly i
 
 -Resume analysis may take a few seconds due to embedding computations.
 
-## Author ##
+## 👤 Author ##
 [M26I](https://github.com/M26I)
