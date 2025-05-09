@@ -5,6 +5,7 @@ import nltk
 import sys
 import os
 from collections import Counter
+from difflib import SequenceMatcher
 
 # Ensure the 'models' and 'utils' folders are in the path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -23,22 +24,26 @@ skills_df = pd.read_csv("data/cleaned_skills.csv")
 job_titles = set(job_titles_df['job_title'].dropna().str.lower().unique())
 known_skills = set(skills_df['skill'].dropna().str.lower())
 
-# Define tracks
-track_groups = {
-    "AI / Data Science": ["data scientist", "machine learning engineer", "data analyst", "ai engineer"],
-    "Web Development": ["frontend developer", "backend developer", "full stack developer", "web developer"],
-    "DevOps / Infrastructure": ["devops engineer", "site reliability engineer", "cloud engineer"],
-    "Product / Strategy": ["product manager", "product owner", "business analyst"],
-    "Design / UX": ["ux designer", "ui designer", "product designer"],
-    "Cybersecurity": ["security analyst", "cybersecurity engineer"]
+# Define broad categories for highlighting
+broad_categories = {
+    "Technical": ["developer", "engineer", "scientist", "devops", "reliability", "cloud"],
+    "Design-focused": ["designer", "ux", "ui"],
+    "Business-oriented": ["manager", "analyst", "owner", "strategist", "product"]
 }
 
-def get_track_for_title(title):
+category_colors = {
+    "Technical": "#d1e7dd",
+    "Design-focused": "#cfe2ff",
+    "Business-oriented": "#fff3cd",
+    "General": "#e7eaf6"
+}
+
+def categorize_job_title(title):
     title = title.lower()
-    for track, titles in track_groups.items():
-        if title in titles:
-            return track
-    return "Other"
+    for category, keywords in broad_categories.items():
+        if any(k in title for k in keywords):
+            return category
+    return "General"
 
 def suggest_missing_skills(resume_text, extracted_skills, known_skills, top_n=10):
     from nltk.corpus import stopwords
@@ -49,19 +54,13 @@ def suggest_missing_skills(resume_text, extracted_skills, known_skills, top_n=10
 
     skill_scores = []
     for skill in known_skills:
-        # Skip if already extracted
         if skill in extracted_skills:
             continue
-
-        # Filter out long phrases or sentences
         if len(skill.split()) > 2:
             continue
-
-        # Ignore skills that are just stopwords or contain mostly stopwords
         if all(word in stop_words for word in skill.split()):
             continue
 
-        # Score skill based on word frequency in resume
         relevance = sum(word_counts.get(word, 0) for word in skill.split())
         if relevance > 0:
             skill_scores.append((skill, relevance))
@@ -69,16 +68,15 @@ def suggest_missing_skills(resume_text, extracted_skills, known_skills, top_n=10
     sorted_skills = sorted(skill_scores, key=lambda x: x[1], reverse=True)
     return [skill for skill, _ in sorted_skills[:top_n]]
 
-
 # Main app
 def main():
     st.title("AI Career Advisor - PathFinder")
-    st.write("Upload a resume or choose a sample to get the top 5 matching job titles based on your skills.")
+    st.write("Choose a sample or upload a resume to get the top 5 matching job titles based on your skills.")
 
     sample_resume_folder = "sample_resumes"
     os.makedirs(sample_resume_folder, exist_ok=True)
     sample_files = [f for f in os.listdir(sample_resume_folder) if f.endswith((".txt", ".pdf"))]
-    sample_choice = st.selectbox("Or choose a sample resume:", ["-- Select --"] + sample_files)
+    sample_choice = st.selectbox("Choose a sample resume:", ["-- Select --"] + sample_files)
 
     uploaded_file = None
     resume_text = ""
@@ -115,8 +113,14 @@ def main():
         st.subheader("Results")
         st.write("### Top 5 Job Matches")
         for match in top_matches:
-            track = get_track_for_title(match['job_title'])
-            st.write(f"**{match['job_title'].title()}** — *Track:* {track} — **Score:** {match['score']:.3f}")
+            category = categorize_job_title(match['job_title'])
+            bg_color = category_colors.get(category, "#e2e3e5")
+            st.markdown(
+                f"<div style='background-color:{bg_color}; padding:10px; border-radius:6px; margin-bottom:6px;'>"
+                f"<strong>{match['job_title'].title()}</strong> — <em>Category:</em> {category} — <strong>Score:</strong> {match['score']:.3f}"
+                f"</div>",
+                unsafe_allow_html=True
+            )
 
         st.write("### Job Titles Found in Resume")
         st.write(extracted_titles if extracted_titles else "No job titles detected.")
