@@ -1,0 +1,8 @@
+Emily White
+Cybersecurity Engineer
+
+Skills:
+Network Security, Threat Detection, Penetration Testing, Firewalls, Python, Splunk, SIEM
+
+Experience:
+Secured enterprise networks and conducted vulnerability assessments

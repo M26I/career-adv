@@ -1,0 +1,8 @@
+Jane Smith
+Frontend Developer
+
+Skills:
+HTML, CSS, JavaScript, React, TypeScript, Redux, TailwindCSS, Figma
+
+Experience:
+2 years at XYZ Ltd building responsive UIs and SPAs

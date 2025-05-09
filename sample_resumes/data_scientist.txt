@@ -1,0 +1,8 @@
+John Doe
+Data Scientist
+
+Skills:
+Python, Pandas, NumPy, Machine Learning, SQL, TensorFlow, Data Visualization, Statistics, Scikit-learn
+
+Experience:
+3 years at ABC Corp analyzing customer behavior and building ML models
