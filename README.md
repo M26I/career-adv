@@ -67,3 +67,8 @@ These are located in the `sample_resumes/` folder and can be selected directly i
 
 ## 👤 Author ##
 [M26I](https://github.com/M26I)
+
+---
+© 2025 M26I – For educational/portfolio use only.  
+Unauthorized use or redistribution without credit is prohibited.
+

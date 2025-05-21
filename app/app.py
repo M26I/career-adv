@@ -1,3 +1,5 @@
+# © 2025 M26I - For educational/portfolio use only
+
 import streamlit as st
 import pandas as pd
 import re

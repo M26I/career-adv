@@ -1,3 +1,4 @@
+# © 2025 M26I - For educational/portfolio use only
 from sentence_transformers import SentenceTransformer, util
 import pandas as pd
 import torch
